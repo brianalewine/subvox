@@ -30,7 +30,7 @@ In **Train → Passage**, choose one of eight academic readings, select everyday
 
 The app timestamps the displayed prompts and checks for motion above your resting level inside each interval. It skips quiet, clipped, and interrupted intervals. A skipped prompt cannot shift subsequent labels. The label comes from the cue, so moving your head or mouthing a different word can still produce a mislabeled take.
 
-For a practical accuracy check, reseat the headphones and choose **Test a fresh reading**. This scores new takes against the existing classifier and leaves them out of training. The denominator includes every prompt, including weak captures and decoder rejections. Repeat troublesome terms in later sessions. Exact word forms need their own examples.
+For a practical accuracy check, reseat the headphones and choose **Decode → Start scored reading**. This scores new takes against the existing classifier and leaves them out of training. The denominator includes every prompt, including weak captures and decoder rejections. Single Word ranks terms by combined held-out training results and scored Decode attempts. Words without evidence appear last. Recorded takes are grouped by reading, with older and manual takes available individually. Exact word forms need their own examples.
 
 The academic passages are original topic-based prompts. For choosing additional words across subjects, see [Coxhead’s Academic Word List](https://www.wgtn.ac.nz/lals/resources/academicwordlist). The target-word approach follows the limited-vocabulary task design discussed in [Speech Commands](https://arxiv.org/abs/1804.03209). Accuracy on AirPods motion needs to be measured on your own recordings.
 

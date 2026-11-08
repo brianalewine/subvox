@@ -1,5 +1,6 @@
 *.xcodeproj
 build/
+Subvox.app/
 DerivedData/
 .DS_Store
 xcuserdata/

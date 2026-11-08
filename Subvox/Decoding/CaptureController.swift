@@ -20,7 +20,8 @@ final class CaptureController {
     var autoEnabled = false {
         didSet { if !autoEnabled, isCapturing, !isManual { finish() } }
     }
-    var triggerRatio: Double = 3
+    @ObservationIgnored var onSettingsChange: (() -> Void)?
+    var triggerRatio: Double = 3 { didSet { onSettingsChange?() } }
 
     private(set) var isCapturing = false
     private(set) var isCalibrating = false

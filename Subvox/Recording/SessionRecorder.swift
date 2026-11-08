@@ -25,8 +25,9 @@ final class SessionRecorder {
         }
     }
 
-    var condition: Condition = .silent
-    var prompt = ""
+    @ObservationIgnored var onSettingsChange: (() -> Void)?
+    var condition: Condition = .silent { didSet { onSettingsChange?() } }
+    var prompt = "" { didSet { onSettingsChange?() } }
     private(set) var isRecording = false
     private(set) var startedAt: Date?
     private(set) var motionCount = 0

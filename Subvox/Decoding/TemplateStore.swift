@@ -1,8 +1,16 @@
 import Foundation
 
+struct WordScore: Codable {
+    var correct = 0
+    var total = 0
+    var accuracy: Double? { total > 0 ? Double(correct) / Double(total) : nil }
+}
+
 struct Dataset: Codable {
     var vocabulary: [String]
     var templates: [Template]
+
+    var decodeScores: [String: WordScore]?
 
     static let starter = Dataset(vocabulary: ["yes", "no", "next", "back", "stop"], templates: [])
 }

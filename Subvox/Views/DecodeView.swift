@@ -12,13 +12,42 @@ struct DecodeView: View {
                     Label("Train at least two words in the Train tab first.", systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.orange)
                 }
+                readingPanel
                 transcriptPanel
-                controls
+                if !model.decodeReading.running { controls }
                 DisclosureGroup("Word match details") { lastPredictionPanel }
                 DisclosureGroup("Compare with microphone") { micPanel }
             }
             .padding(20)
         }
+    }
+
+    private var readingPanel: some View {
+        @Bindable var reading = model.decodeReading
+        return GroupBox("Decode passage") {
+            VStack(alignment: .leading, spacing: 10) {
+                if reading.running {
+                    ReadingTranscript(passage: reading)
+                    Button("Stop reading") { reading.stop() }
+                } else {
+                    Text(model.decodePrompt.prefix(150).joined(separator: " ")).font(.title2)
+                    Stepper(String(format: "%.1f seconds per word", reading.secondsPerWord),
+                            value: $reading.secondsPerWord, in: 0.8...4, step: 0.2)
+                    Button("Start scored reading", action: model.startDecodeReading)
+                        .buttonStyle(.borderedProminent)
+                        .disabled(model.classifier == nil || model.motion.status != .streaming || model.capture.isCapturing || model.capture.isCalibrating)
+                    if !reading.report.isEmpty { Text(reading.report) }
+                }
+                if model.attempted > 0 {
+                    Text((Double(model.correct) / Double(model.attempted)).formatted(.percent.precision(.fractionLength(0))) + " accuracy")
+                        .font(.title2.bold())
+                    Text("\(model.correct)/\(model.attempted) correct · \(model.wrong) incorrect · \(model.rejected) rejected · \(model.skipped) skipped")
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading).padding(6)
+        }
+        .onDisappear { reading.stop() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in reading.stop() }
+        .onChange(of: model.motion.status) { _, status in if status != .streaming { reading.stop() } }
     }
 
     // MARK: Controls

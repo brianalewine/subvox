@@ -3,6 +3,10 @@ import SwiftUI
 struct ContentView: View {
     @Environment(AppModel.self) private var model
 
+    private var trainingActive: Bool {
+        model.screen == .train && (model.passage.running || model.passage.awaitingNextSession || model.capture.isCapturing)
+    }
+
     var body: some View {
         NavigationSplitView {
             List(AppModel.Screen.allCases, selection: screenSelection) { screen in
@@ -16,12 +20,20 @@ struct ContentView: View {
             case .decode: DecodeView()
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .status) {
-                MotionStatusBadge(status: model.motion.status, rate: model.motion.sampleRate)
+        .accessibilityHidden(trainingActive)
+        .overlay {
+            if trainingActive {
+                TrainingFocusView()
             }
-            ToolbarItem {
-                RecordToolbarButton()
+        }
+        .toolbar {
+            if !trainingActive {
+                ToolbarItem(placement: .status) {
+                    MotionStatusBadge(status: model.motion.status, rate: model.motion.sampleRate)
+                }
+            }
+            if model.screen == .sensors {
+                ToolbarItem { RecordToolbarButton() }
             }
         }
         .navigationTitle(model.screen.rawValue)

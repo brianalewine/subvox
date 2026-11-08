@@ -36,8 +36,16 @@ enum AudioDevices {
     }
 
     static func name(of id: AudioDeviceID) -> String? {
+        stringProperty(kAudioObjectPropertyName, of: id)
+    }
+
+    static func uid(of id: AudioDeviceID) -> String? {
+        stringProperty(kAudioDevicePropertyDeviceUID, of: id)
+    }
+
+    private static func stringProperty(_ selector: AudioObjectPropertySelector, of id: AudioDeviceID) -> String? {
         var address = AudioObjectPropertyAddress(
-            mSelector: kAudioObjectPropertyName,
+            mSelector: selector,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain)
         var name: Unmanaged<CFString>?

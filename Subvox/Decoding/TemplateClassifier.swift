@@ -4,6 +4,7 @@ struct Template: Codable, Identifiable, Hashable, Sendable {
     var id = UUID()
     var label: String
     var samples: [MotionSample]
+    var readingID: UUID?
     var createdAt = Date()
 
     var duration: TimeInterval {
@@ -45,6 +46,28 @@ struct TemplateClassifier: Sendable {
         self.featureSet = featureSet
         self.scales = scales
         self.entries = zip(templates, raw).map { ($0.label, MotionFeatures.scaled($1, by: scales)) }
+    }
+
+    /// Classify each held-out take against the others, sharing each pairwise distance.
+    func trainingScores() -> [String: WordScore] {
+        let counts = Dictionary(grouping: entries, by: \.label).mapValues(\.count)
+        var nearest = Array(repeating: (distance: Double.infinity, label: ""), count: entries.count)
+        for i in entries.indices {
+            if Task.isCancelled { return [:] }
+            for j in entries.indices.dropFirst(i + 1) {
+                let distance = DTW.distance(entries[i].frames, entries[j].frames)
+                if (distance, entries[j].label) < nearest[i] { nearest[i] = (distance, entries[j].label) }
+                if (distance, entries[i].label) < nearest[j] { nearest[j] = (distance, entries[i].label) }
+            }
+        }
+        var scores: [String: WordScore] = [:]
+        for i in entries.indices {
+            let label = entries[i].label
+            guard counts[label, default: 0] >= 2 else { continue }
+            scores[label, default: WordScore()].total += 1
+            if nearest[i].label == label { scores[label, default: WordScore()].correct += 1 }
+        }
+        return scores
     }
 
     func rank(_ samples: [MotionSample]) -> [RankedLabel] {

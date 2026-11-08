@@ -20,6 +20,7 @@ targets:
       path: Subvox/Info.plist
       properties:
         CFBundleDisplayName: Subvox
+        CFBundleIconFile: Subvox.icns
         LSApplicationCategoryType: public.app-category.developer-tools
         NSMotionUsageDescription: Subvox reads AirPods head-motion data to study whether mouthed words can be decoded into text.
         NSMicrophoneUsageDescription: Subvox records microphone audio alongside motion data and transcribes whispered speech for comparison.

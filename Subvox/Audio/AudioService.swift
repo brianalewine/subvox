@@ -53,17 +53,27 @@ final class AudioService {
     /// `nil` means "system default input".
     var selectedDeviceID: AudioDeviceID? {
         didSet {
+            preferredDeviceUID = selectedDeviceID.flatMap { AudioDevices.uid(of: $0) }
+            onSettingsChange?()
             guard oldValue != selectedDeviceID, isRunning else { return }
             stop()
             Task { await start() }
         }
     }
 
+    @ObservationIgnored var preferredDeviceUID: String?
+    @ObservationIgnored var onSettingsChange: (() -> Void)?
+
     @ObservationIgnored let sink = AudioSink()
     @ObservationIgnored private var engine: AVAudioEngine?
 
     func refreshDevices() {
         devices = AudioDevices.inputDevices()
+        if let preferredDeviceUID,
+           let device = devices.first(where: { AudioDevices.uid(of: $0.id) == preferredDeviceUID }),
+           selectedDeviceID != device.id {
+            selectedDeviceID = device.id
+        }
     }
 
     func start() async {
