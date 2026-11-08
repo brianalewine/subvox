@@ -12,12 +12,10 @@ struct DecodeView: View {
                     Label("Train at least two words in the Train tab first.", systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.orange)
                 }
-                controls
                 transcriptPanel
-                HStack(alignment: .top, spacing: 16) {
-                    lastPredictionPanel
-                    micPanel
-                }
+                controls
+                DisclosureGroup("Word match details") { lastPredictionPanel }
+                DisclosureGroup("Compare with microphone") { micPanel }
             }
             .padding(20)
         }
@@ -47,6 +45,7 @@ struct DecodeView: View {
                     autoControls
                 }
 
+                DisclosureGroup("Recognition sensitivity") {
                 HStack(spacing: 24) {
                     LabeledContent("Max distance") {
                         Slider(value: $model.maxDistance, in: 0.2...4).frame(width: 140)
@@ -58,6 +57,7 @@ struct DecodeView: View {
                     }
                 }
                 .font(.callout)
+                }
             }
             .padding(6)
         }
@@ -104,7 +104,7 @@ struct DecodeView: View {
         GroupBox {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("Decoded from motion").font(.headline)
+                    Text("Motion transcript").font(.title2.bold())
                     Spacer()
                     Button("Clear", action: model.clearDecoded)
                         .disabled(model.decoded.isEmpty)
@@ -113,12 +113,12 @@ struct DecodeView: View {
                     Text("Mouth a trained word…")
                         .font(.system(size: 28, weight: .regular, design: .rounded))
                         .foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity, minHeight: 80, alignment: .topLeading)
+                        .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
                 } else {
                     decodedText
                         .font(.system(size: 28, weight: .medium, design: .rounded))
                         .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, minHeight: 80, alignment: .topLeading)
+                        .frame(maxWidth: .infinity, minHeight: 140, alignment: .topLeading)
                 }
                 Text("Faded words were rejected by the distance/confidence thresholds.")
                     .font(.caption2)

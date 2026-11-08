@@ -4,22 +4,50 @@ struct TrainView: View {
     @Environment(AppModel.self) private var model
     @State private var newWord = ""
 
+    @State private var advance = false
+    @State private var rounds = 4
+
     var body: some View {
         @Bindable var model = model
         HSplitView {
-            vocabulary
-                .frame(minWidth: 200, idealWidth: 220, maxWidth: 280)
+            if !model.passageMode && !model.passage.running { vocabulary
+                .frame(minWidth: 200, idealWidth: 220, maxWidth: 280) }
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    if !model.passage.running {
                     Picker("Training mode", selection: $model.passageMode) {
                         Text("Passage").tag(true)
                         Text("Single word").tag(false)
                     }
                     .pickerStyle(.segmented)
                     .disabled(model.capture.isCapturing || model.passage.running)
-                    if model.passageMode { PassagePanel() } else { capturePanel }
-                    takes
-                    EvaluationPanel()
+                    }
+                    if model.passageMode || model.passage.running {
+                        PassagePanel()
+                    } else {
+                        Text(model.selectedWord ?? "Choose a word").font(.largeTitle.bold())
+                        Picker("Hands-free practice", selection: $advance) {
+                            Text("Repeat word").tag(false)
+                            Text("Advance through vocabulary").tag(true)
+                        }.pickerStyle(.segmented)
+                        Stepper("\(rounds) repetitions", value: $rounds, in: 1...20)
+                        Button("Start auto run") {
+                            guard let word = model.selectedWord,
+                                  let i = model.dataset.vocabulary.firstIndex(of: word) else { return }
+                            let vocab = model.dataset.vocabulary
+                            let words = advance ? Array(vocab[i...]) + Array(vocab[..<i]) : [word]
+                            let queue = (0..<rounds).flatMap { _ in words }
+                            model.passage.start(queue: queue, passesOverride: 1, save: model.savePassage)
+                        }.buttonStyle(.borderedProminent)
+                        .disabled(model.motion.status != .streaming || model.selectedWord == nil || model.capture.isCapturing)
+                        DisclosureGroup("Manual capture") { capturePanel }
+                        if !model.passage.report.isEmpty { Text(model.passage.report) }
+                        if model.motion.status != .streaming { Text(model.motion.status.label).foregroundStyle(.secondary) }
+                    }
+                    if !model.passage.running {
+                        DisclosureGroup("Recorded takes") { takes }
+                        DisclosureGroup("Evaluate training data") { EvaluationPanel() }
+                    }
                 }
                 .padding(20)
             }
@@ -244,16 +272,25 @@ private struct PassagePanel: View {
         let count = PassageAlignment.words(in: passage.text).count
         VStack(alignment: .leading, spacing: 10) {
             if passage.running {
-                Text(passage.detail).foregroundStyle(.secondary)
-                Text(passage.cue).font(.system(size: 48, weight: .semibold))
-                    .frame(maxWidth: .infinity, minHeight: 90)
+                VStack(spacing: 18) {
+                Text(passage.detail).font(.headline.monospacedDigit()).foregroundStyle(.white.opacity(0.7))
+                Text(passage.cue).font(.system(size: 84, weight: .bold))
+                    .lineLimit(1).minimumScaleFactor(0.2).foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 110)
                 if let current = passage.cueIndex {
-                    let words = PassageAlignment.words(in: passage.text)
+                    let words = passage.queuedWords
                     Text(words.dropFirst(current + 1).prefix(7).joined(separator: " "))
-                        .foregroundStyle(.secondary)
+                        .font(.title2).foregroundStyle(.white.opacity(0.65))
                         .accessibilityLabel("Upcoming words")
                 }
-                Button("Stop reading") { passage.stop() }
+                }.padding(28).frame(maxWidth: .infinity, minHeight: 300)
+                    .background(Color(red: 0.08, green: 0.13, blue: 0.17), in: RoundedRectangle(cornerRadius: 18))
+                HStack {
+                    Stepper(String(format: "%.1f seconds per word", passage.secondsPerWord),
+                            value: $passage.secondsPerWord, in: 0.8...4, step: 0.2)
+                    Spacer()
+                    Button("Stop reading") { passage.stop() }
+                }
             } else {
                 Text("Mouth each word once when it appears, then relax until the next cue. Keep your head still.")
                 Menu(PassageAlignment.readings.first { $0.text == passage.text }?.title ?? "Custom passage") {
@@ -267,17 +304,14 @@ private struct PassagePanel: View {
                     if !passage.testReading {
                         Stepper("\(passage.repetitions) readings", value: $passage.repetitions, in: 1...10)
                     }
-                    Picker("Pace", selection: $passage.secondsPerWord) {
-                        Text("1.2 s / word").tag(1.2)
-                        Text("1.6 s / word").tag(1.6)
-                        Text("2.2 s / word").tag(2.2)
-                    }.fixedSize()
+                    Stepper(String(format: "%.1f seconds per word", passage.secondsPerWord), value: $passage.secondsPerWord, in: 0.8...4, step: 0.2)
                 }
                 Toggle("Test a fresh reading without adding training data", isOn: $passage.testReading)
                 if passage.testReading && model.classifier == nil {
                     Text("Train at least two words and select a feature channel to test a reading.")
                 }
                 Button(passage.testReading ? "Start test reading" : "Start passage") { model.startPassage() }
+                    .buttonStyle(.borderedProminent)
                     .disabled(model.motion.status != .streaming || !(1...150).contains(count) || (passage.testReading && model.classifier == nil))
                 if !(1...150).contains(count) {
                     Text("Enter between 1 and 150 words.").foregroundStyle(.secondary)

@@ -46,6 +46,7 @@ final class PassageTrainer {
     var testReading = false
     var repetitions = 4
     var secondsPerWord = 1.6
+    private(set) var queuedWords: [String] = []
     private(set) var running = false
     private(set) var cueIndex: Int?
     private(set) var cue = ""
@@ -72,16 +73,16 @@ final class PassageTrainer {
         report = [report, message].filter { !$0.isEmpty }.joined(separator: "\n")
     }
 
-    func start(save: @escaping ([Template]) throws -> Void, score: (([Template], Int) -> String)? = nil) {
-        let words = PassageAlignment.words(in: text)
-        guard !running, (1...150).contains(words.count) else { return }
+    func start(queue: [String]? = nil, passesOverride: Int? = nil, save: @escaping ([Template]) throws -> Void, score: (([Template], Int) -> String)? = nil) {
+        let words = queue ?? PassageAlignment.words(in: text)
+        guard !running, !words.isEmpty, queue != nil || words.count <= 150 else { return }
         running = true
         cueIndex = nil
         report = ""
         cue = "Hold still"
         detail = "Measuring resting motion"
-        let passes = score == nil ? repetitions : 1
-        let pace = secondsPerWord
+        let passes = passesOverride ?? (score == nil ? repetitions : 1)
+        queuedWords = words
         task = Task {
             do {
                 var total = 0
@@ -108,7 +109,7 @@ final class PassageTrainer {
                         cue = word
                         detail = "Reading \(pass) of \(passes) · word \(index + 1) of \(words.count)"
                         boundaries.append(now)
-                        try await Task.sleep(for: .seconds(pace))
+                        try await Task.sleep(for: .seconds(secondsPerWord))
                     }
                     boundaries.append(now)
                     cueIndex = nil
