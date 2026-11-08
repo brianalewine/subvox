@@ -21,10 +21,13 @@ enum TemplateStore {
         return dataset
     }
 
+    static func write(_ dataset: Dataset) throws {
+        try JSONEncoder().encode(dataset).write(to: url, options: .atomic)
+    }
+
     static func save(_ dataset: Dataset) {
         do {
-            let data = try JSONEncoder().encode(dataset)
-            try data.write(to: url, options: .atomic)
+            try write(dataset)
         } catch {
             print("Subvox: failed to save dataset: \(error)")
         }

@@ -26,11 +26,15 @@ final class AppModel {
     let motion = HeadphoneMotionService()
     let audio = AudioService()
     let transcriber = MicTranscriber()
+    let passage = PassageTrainer()
     let capture = CaptureController()
     let recorder = SessionRecorder()
 
     var screen: Screen = .train {
-        didSet { syncCaptureMode() }
+        didSet {
+            if screen != .train { passage.stop() }
+            syncCaptureMode()
+        }
     }
 
     // MARK: Training
@@ -74,7 +78,8 @@ final class AppModel {
     }
 
     private func ingest(_ sample: MotionSample) {
-        capture.ingest(sample)
+        passage.ingest(sample)
+        if !passage.running { capture.ingest(sample) }
         recorder.record(sample)
     }
 
@@ -124,13 +129,60 @@ final class AppModel {
         // Let text fields keep the space bar.
         if NSApp.keyWindow?.firstResponder is NSText { return false }
         switch screen {
-        case .train: return selectedWord != nil
+        case .train: return !passage.running && !passageMode && selectedWord != nil
         case .decode: return decodeMode == .hold && classifier != nil
         case .sensors: return recorder.isRecording
         }
     }
 
     // MARK: Dataset editing
+
+    var passageMode = true
+
+    func startPassage() {
+        guard screen == .train, passageMode, motion.status == .streaming, !capture.isCapturing else { return }
+        if passage.testReading {
+            guard let classifier else { return }
+            let distance = maxDistance, confidence = minConfidence
+            passage.start(save: savePassage) { takes, count in
+                var correct = 0
+                var rejected = 0
+                var errors: [String: Int] = [:]
+                for take in takes {
+                    let result = classifier.predict(take.samples, maxDistance: distance, minConfidence: confidence)
+                    if !result.accepted {
+                        rejected += 1
+                    } else if result.best?.label == take.label {
+                        correct += 1
+                    } else if let label = result.best?.label {
+                        errors["\(take.label) → \(label)", default: 0] += 1
+                    }
+                }
+                var summary = "Fresh reading: \(correct) of \(count) prompts correct. " +
+                    "\(takes.count - correct - rejected) misclassified, \(rejected) rejected, \(count - takes.count) skipped."
+                if !errors.isEmpty {
+                    let common = errors.sorted { ($0.value, $0.key) > ($1.value, $1.key) }.prefix(3)
+                    summary += " Mix-ups: " + common.map { "\($0.key) (\($0.value))" }.joined(separator: ", ") + "."
+                }
+                return summary
+            }
+        } else {
+            passage.start(save: savePassage)
+        }
+    }
+
+    func savePassage(_ takes: [Template]) throws {
+        var updated = dataset
+        for take in takes where !updated.vocabulary.contains(take.label) {
+            updated.vocabulary.append(take.label)
+        }
+        updated.templates += takes
+        try TemplateStore.write(updated)
+        dataset = updated
+        lastTemplateID = takes.last?.id
+        if selectedWord == nil { selectedWord = takes.first?.label }
+        rebuildClassifier()
+    }
 
     func templates(for word: String) -> [Template] {
         dataset.templates.filter { $0.label == word }

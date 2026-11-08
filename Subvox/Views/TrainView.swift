@@ -5,12 +5,19 @@ struct TrainView: View {
     @State private var newWord = ""
 
     var body: some View {
+        @Bindable var model = model
         HSplitView {
             vocabulary
                 .frame(minWidth: 200, idealWidth: 220, maxWidth: 280)
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    capturePanel
+                    Picker("Training mode", selection: $model.passageMode) {
+                        Text("Passage").tag(true)
+                        Text("Single word").tag(false)
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(model.capture.isCapturing || model.passage.running)
+                    if model.passageMode { PassagePanel() } else { capturePanel }
                     takes
                     EvaluationPanel()
                 }
@@ -184,6 +191,7 @@ private struct EvaluationResultView: View {
                 .font(.callout)
                 .foregroundStyle(result.pValue < 0.05 ? .green : .orange)
 
+            ScrollView(.horizontal) {
             Grid(horizontalSpacing: 2, verticalSpacing: 2) {
                 GridRow {
                     Text("actual ↓ / predicted →").font(.caption2).foregroundStyle(.secondary)
@@ -203,6 +211,7 @@ private struct EvaluationResultView: View {
                         }
                     }
                 }
+            }
             }
         }
     }
@@ -224,5 +233,63 @@ private struct EvaluationResultView: View {
 
     private func percent(_ value: Double) -> String {
         String(format: "%.0f%%", value * 100)
+    }
+}
+
+private struct PassagePanel: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        @Bindable var passage = model.passage
+        let count = PassageAlignment.words(in: passage.text).count
+        VStack(alignment: .leading, spacing: 10) {
+            if passage.running {
+                Text(passage.detail).foregroundStyle(.secondary)
+                Text(passage.cue).font(.system(size: 48, weight: .semibold))
+                    .frame(maxWidth: .infinity, minHeight: 90)
+                if let current = passage.cueIndex {
+                    let words = PassageAlignment.words(in: passage.text)
+                    Text(words.dropFirst(current + 1).prefix(7).joined(separator: " "))
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Upcoming words")
+                }
+                Button("Stop reading") { passage.stop() }
+            } else {
+                Text("Mouth each word once when it appears, then relax until the next cue. Keep your head still.")
+                Menu(PassageAlignment.readings.first { $0.text == passage.text }?.title ?? "Custom passage") {
+                    ForEach(PassageAlignment.readings, id: \.title) { reading in
+                        Button(reading.title) { passage.text = reading.text }
+                    }
+                }
+                TextEditor(text: $passage.text).font(.body).frame(minHeight: 64)
+                    .border(.secondary.opacity(0.3))
+                HStack {
+                    if !passage.testReading {
+                        Stepper("\(passage.repetitions) readings", value: $passage.repetitions, in: 1...10)
+                    }
+                    Picker("Pace", selection: $passage.secondsPerWord) {
+                        Text("1.2 s / word").tag(1.2)
+                        Text("1.6 s / word").tag(1.6)
+                        Text("2.2 s / word").tag(2.2)
+                    }.fixedSize()
+                }
+                Toggle("Test a fresh reading without adding training data", isOn: $passage.testReading)
+                if passage.testReading && model.classifier == nil {
+                    Text("Train at least two words and select a feature channel to test a reading.")
+                }
+                Button(passage.testReading ? "Start test reading" : "Start passage") { model.startPassage() }
+                    .disabled(model.motion.status != .streaming || !(1...150).contains(count) || (passage.testReading && model.classifier == nil))
+                if !(1...150).contains(count) {
+                    Text("Enter between 1 and 150 words.").foregroundStyle(.secondary)
+                }
+                if model.motion.status != .streaming { Text(model.motion.status.label).foregroundStyle(.orange) }
+            }
+            if !passage.report.isEmpty { Text(passage.report).font(.callout) }
+        }
+        .onDisappear { passage.stop() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in passage.stop() }
+        .onChange(of: model.motion.status) { _, status in
+            if status != .streaming { passage.stop() }
+        }
     }
 }

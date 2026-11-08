@@ -15,12 +15,24 @@ open Subvox.xcodeproj   # ⌘R
 Or from the command line:
 
 ```sh
-xcodebuild -project Subvox.xcodeproj -scheme Subvox -derivedDataPath build -allowProvisioningUpdates build
+xcodebuild -project Subvox.xcodeproj -scheme Subvox -derivedDataPath build build
 open build/Build/Products/Debug/Subvox.app
 xcodebuild -project Subvox.xcodeproj -scheme Subvox -derivedDataPath build test
 ```
 
 Requires macOS 14+, AirPods Pro or another headphone that supports head tracking, connected as the Mac's audio output. On first launch, grant **Motion**. The mic and speech prompts only appear when you start the mic.
+
+The project uses local ad-hoc signing. You can copy the built Subvox.app into your Applications folder and open it from Finder.
+
+## Passage training
+
+In **Train → Passage**, choose one of eight academic readings, select everyday commands, or paste up to 150 words from your own course material. Click **Start passage** once. Hold still during the two-second calibration, then silently mouth each cue once and relax before the next. A slower pace gives longer terms more room. Each completed reading adds the accepted word motions to the same training set used by Decode. The summary lists missed words. Stopping discards the unfinished reading.
+
+The app timestamps the displayed prompts and checks for motion above your resting level inside each interval. It skips quiet, clipped, and interrupted intervals. A skipped prompt cannot shift subsequent labels. The label comes from the cue, so moving your head or mouthing a different word can still produce a mislabeled take.
+
+For a practical accuracy check, reseat the headphones and choose **Test a fresh reading**. This scores new takes against the existing classifier and leaves them out of training. The denominator includes every prompt, including weak captures and decoder rejections. Repeat troublesome terms in later sessions. Exact word forms need their own examples.
+
+The academic passages are original topic-based prompts. For choosing additional words across subjects, see [Coxhead’s Academic Word List](https://www.wgtn.ac.nz/lals/resources/academicwordlist). The target-word approach follows the limited-vocabulary task design discussed in [Speech Commands](https://arxiv.org/abs/1804.03209). Accuracy on AirPods motion needs to be measured on your own recordings.
 
 ## Screens
 
